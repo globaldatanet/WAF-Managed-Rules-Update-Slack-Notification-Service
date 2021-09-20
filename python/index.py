@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 def format_message(data):
     payload = {
         'username': f"WAF {data['Type']}",
-        'icon_emoji': ':mangedrule:',
+        'icon_emoji': ':managedrule:',
         'text': f"{data['Subject']}",
         'attachments': [
             {

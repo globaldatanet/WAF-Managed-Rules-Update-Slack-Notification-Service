@@ -1,0 +1,28 @@
+
+version: '3'
+output: prefixed
+env:
+  STACK_NAME: WAF-MANGEDRULES-NOTIFIER
+  SOLUTIONTEMPLATE: cloudformation/template.yaml
+  PACKAGE: cloudformation/packaged.yaml
+
+tasks:
+  deploy:
+    desc: Deploy Stack
+    cmds:
+      - task: package
+      - aws cloudformation deploy --stack-name {{.STACK_NAME}} --template-file {{.PACKAGE}} --capabilities CAPABILITY_NAMED_IAM --parameter-overrides {{.PARAMS}} --tags {{.TAGS}} --region eu-central-1 
+    vars:
+      ACCOUNT:
+        sh: aws sts get-caller-identity |jq -r .Account
+      PARAMS:
+        sh: cat values/values.json | jq -j '.[] | [.ParameterKey, .ParameterValue] | "\(.[0])=\(.[1]) "'
+      TAGS:
+        sh: cat tags/tags.json | jq -j '.[]|(.Key)+"="+(.Value)+" "'
+  package:
+    desc: Package template
+    cmds:
+      - aws cloudformation package --template-file {{.SOLUTIONTEMPLATE}} --s3-bucket {{.CF_BUCKET}} --output-template-file {{.PACKAGE}} --region eu-central-1 --debug
+    vars:
+      CF_BUCKET:
+        sh: aws s3api list-buckets |jq -r '.Buckets[].Name' |grep "cf-templates.*eu-central-1"

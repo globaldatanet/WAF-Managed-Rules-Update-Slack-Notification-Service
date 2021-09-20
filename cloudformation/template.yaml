@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Managed WAF Rule Change - Slack notification
+################################################################################
+#
+#   AWS Chatbot:
+#     Managed WAF Rule Change
+#     Messenger: Slack
+#
+################################################################################
+
+# -----------------------------------------------------------------------------
+# Parameters
+# -----------------------------------------------------------------------------
+Parameters:
+  OfficialSNSTopic:
+    Description: 'Official AWS SNS Topic for upcoming rule updates'
+    Type: String   
+    Default: 'arn:aws:sns:us-east-1:248400274283:aws-managed-waf-rule-notifications'
+  WebhookUrl:
+    Description: 'Incoming Webhook URL to send messages to'
+    Type: String
+# -----------------------------------------------------------------------------
+# Resources 
+# -----------------------------------------------------------------------------
+Resources:
+  NotifyLambdaLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub /aws/lambda/Managed-WAF-Rule-Change-Slack-Notification-${AWS::AccountId}
+
+  LambdaBasicExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+        - PolicyName: LambdaLoggingRule
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !GetAtt NotifyLambdaLogGroup.Arn
+        Path: /
+
+  NotifyLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub Managed-WAF-Rule-Change-Slack-Notification-${AWS::AccountId}
+      Description: Sends information about the Manged WAF-Rule-Change Status to messengers Slack
+      Environment:
+        Variables:
+          WebhookUrl: !Ref WebhookUrl
+      Handler: index.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt LambdaBasicExecutionRole.Arn
+      Code: python/index.py
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn:
+        Ref: OfficialSNSTopic
+      FunctionName: !GetAtt NotifyLambda.Arn

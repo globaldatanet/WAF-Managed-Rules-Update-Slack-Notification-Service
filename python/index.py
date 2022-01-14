@@ -51,6 +51,6 @@ def notify_slack(url, payload):
 
 def lambda_handler(event, context):
     logger.info("Message: " + str(event))
-    payload = format_message(event)
+    payload = format_message(event['Records'][0]['Sns'])
     response = notify_slack(HOOK_URL, payload)
     return response
